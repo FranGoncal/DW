@@ -1,75 +1,104 @@
 USE dw8_2526_DW_Energia;
 
+--SET STATISTICS PROFILE ON;
+--SET STATISTICS PROFILE OFF;
+SET STATISTICS IO ON;
+--SET STATISTICS IO OFF;
+SET STATISTICS TIME ON;
+--SET STATISTICS TIME OFF;
+
+
 -- Índices na fact table e dimensões
 CREATE NONCLUSTERED INDEX idx_fact_time
-ON dw.fact_consumption (TIME_ID);
-
+ON dw.fact_consumo_eletrico (id_tempo);
 CREATE NONCLUSTERED INDEX idx_fact_location
-ON dw.fact_consumption (LOCATION_ID);
-
+ON dw.fact_consumo_eletrico (id_localizacao);
 CREATE NONCLUSTERED INDEX idx_fact_voltage
-ON dw.fact_consumption (VOLTAGE_ID);
-
+ON dw.fact_consumo_eletrico (id_voltagem);
 CREATE NONCLUSTERED INDEX idx_dim_location
-ON dw.dim_location (DISTRICT, MUNICIPALITY, PARISH);
-
+ON dw.dim_localizacao (distrito, concelho, freguesia);
 CREATE NONCLUSTERED INDEX idx_dim_time
-ON dw.dim_time (YEAR_ID, MONTH_ID);
+ON dw.dim_tempo (ano, mes);
 
 
---CTE: Qual é o consumo por distrito e ano?
+-- Remover índices da fact table
+DROP INDEX idx_fact_time
+ON dw.fact_consumo_eletrico;
+DROP INDEX idx_fact_location
+ON dw.fact_consumo_eletrico;
+DROP INDEX idx_fact_voltage
+ON dw.fact_consumo_eletrico;
+-- Remover índices das dimensões
+DROP INDEX idx_dim_location
+ON dw.dim_localizacao;
+DROP INDEX idx_dim_time
+ON dw.dim_tempo;
+
+
+
+-- CTE: Qual é o consumo por distrito e ano?
 WITH ConsumoPorDistritoAno AS (
     SELECT 
-        l.DISTRICT,
-        t.YEAR_ID,
-        SUM(f.CONSUMPTION) AS Total_Consumo,
-        AVG(f.CONSUMPTION) AS Media_Consumo
-    FROM dw.fact_consumption f
-    JOIN dw.dim_location l ON f.LOCATION_ID = l.LOCATION_ID
-    JOIN dw.dim_time t ON f.TIME_ID = t.TIME_ID
-    GROUP BY l.DISTRICT, t.YEAR_ID
+        l.distrito,
+        t.ano,
+        SUM(f.consumo) AS Total_Consumo,
+        AVG(f.consumo) AS Media_Consumo
+    FROM dw.fact_consumo_eletrico f
+    JOIN dw.dim_localizacao l ON f.id_localizacao = l.id_localizacao
+    JOIN dw.dim_tempo t ON f.id_tempo = t.id_tempo
+    GROUP BY l.distrito, t.ano
 )
 SELECT *
 FROM ConsumoPorDistritoAno
-ORDER BY DISTRICT, YEAR_ID;
+ORDER BY distrito, ano;
+-- LR sem Indices ->
+-- LR com Indices ->
 
 
--- ROLLUP: Qual é o total por distrito e mês, incluindo subtotais?
+-- ROLLUP: Qual é consumo total por distrito e mês, incluindo subtotais?
 SELECT 
-    l.DISTRICT,
-    t.MONTH_ID,
-    SUM(f.CONSUMPTION) AS Total_Consumo
-FROM dw.fact_consumption f
-JOIN dw.dim_location l ON f.LOCATION_ID = l.LOCATION_ID
-JOIN dw.dim_time t ON f.TIME_ID = t.TIME_ID
-GROUP BY ROLLUP (l.DISTRICT, t.MONTH_ID)
-ORDER BY l.DISTRICT, t.MONTH_ID;
+    l.distrito,
+    t.mes,
+    SUM(f.consumo) AS Total_Consumo
+FROM dw.fact_consumo_eletrico f
+JOIN dw.dim_localizacao l ON f.id_localizacao = l.id_localizacao
+JOIN dw.dim_tempo t ON f.id_tempo = t.id_tempo
+GROUP BY ROLLUP (l.distrito, t.mes)
+ORDER BY l.distrito, t.mes;
+-- LR sem Indices ->
+-- LR com Indices ->
 
 
 --CUBE: Qual é o consumo por distrito e nível de tensão?
 SELECT 
-    l.DISTRICT,
-    v.LEVEL AS Voltage_Level,
-    SUM(f.CONSUMPTION) AS Total_Consumo
-FROM dw.fact_consumption f
-JOIN dw.dim_location l ON f.LOCATION_ID = l.LOCATION_ID
-JOIN dw.dim_voltage v ON f.VOLTAGE_ID = v.VOLTAGE_ID
-GROUP BY CUBE (l.DISTRICT, v.LEVEL)
-ORDER BY l.DISTRICT, v.LEVEL;
+    l.distrito,
+    v.nivel_voltagem AS Voltage_Level,
+    SUM(f.consumo) AS Total_Consumo
+FROM dw.fact_consumo_eletrico f
+JOIN dw.dim_localizacao l ON f.id_localizacao = l.id_localizacao
+JOIN dw.dim_voltagem v ON f.id_voltagem = v.id_voltagem
+GROUP BY CUBE (l.distrito, v.nivel_voltagem)
+ORDER BY l.distrito, v.nivel_voltagem;
+-- LR sem Indices ->
+-- LR com Indices ->
 
 
--- GROUPING SETS: Qual é o consumo por ano/distrito e total geral?
-SELECT 
-    t.YEAR_ID,
-    l.DISTRICT,
-    SUM(f.CONSUMPTION) AS Total_Consumo
-FROM dw.fact_consumption f
-JOIN dw.dim_location l ON f.LOCATION_ID = l.LOCATION_ID
-JOIN dw.dim_time t ON f.TIME_ID = t.TIME_ID
+-- GROUPING SETS: Consumo por Ano e Nível de Voltagem?
+SELECT
+    t.ano,
+    v.nivel_voltagem,
+    SUM(f.consumo) AS Total_Consumo
+FROM dw.fact_consumo_eletrico f
+JOIN dw.dim_tempo t
+    ON f.id_tempo = t.id_tempo
+JOIN dw.dim_voltagem v
+    ON f.id_voltagem = v.id_voltagem
 GROUP BY GROUPING SETS (
-    (t.YEAR_ID, l.DISTRICT),  -- por ano e distrito
-    (t.YEAR_ID),               -- por ano
-    (l.DISTRICT),              -- por distrito
-    ()                         -- total geral
+    (t.ano, v.nivel_voltagem),
+    (t.ano),
+    (v.nivel_voltagem),
+    ()
 )
-ORDER BY t.YEAR_ID, l.DISTRICT;
+ORDER BY t.ano, v.nivel_voltagem;
+-- LR sem Indices ->
+-- LR com Indices ->
