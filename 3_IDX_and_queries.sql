@@ -21,19 +21,6 @@ CREATE NONCLUSTERED INDEX idx_dim_time
 ON dw.dim_tempo (ano, mes);
 
 
--- Remover índices da fact table
-DROP INDEX idx_fact_time
-ON dw.fact_consumo_eletrico;
-DROP INDEX idx_fact_location
-ON dw.fact_consumo_eletrico;
-DROP INDEX idx_fact_voltage
-ON dw.fact_consumo_eletrico;
--- Remover índices das dimensões
-DROP INDEX idx_dim_location
-ON dw.dim_localizacao;
-DROP INDEX idx_dim_time
-ON dw.dim_tempo;
-
 
 
 -- CTE: Qual é o consumo por distrito e ano?

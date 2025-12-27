@@ -1,54 +1,4 @@
---com procedures
-USE dw8_2526_DW_Energia;
-
-
--------------------------------------------------
--------------------- Drops  ---------------------
--------------------------------------------------
-DROP PROCEDURE IF EXISTS dw.sp_popular_dim_localizacao;
-DROP PROCEDURE IF EXISTS dw.sp_popular_dim_tempo;
-DROP PROCEDURE IF EXISTS dw.sp_popular_dim_voltagem;
-DROP PROCEDURE IF EXISTS dw.sp_popular_fact_consumo;
-DROP TABLE IF EXISTS dw.fact_consumo_eletrico;
-DROP TABLE IF EXISTS dw.dim_tempo;
-DROP TABLE IF EXISTS dw.dim_voltagem;
-DROP TABLE IF EXISTS dw.dim_localizacao;
-
-
--------------------------------------------------
----------------- Create Tables ------------------
--------------------------------------------------
-CREATE TABLE dw.dim_tempo (
-    id_tempo INT IDENTITY(1,1) PRIMARY KEY,
-    ano INT NOT NULL,
-    mes INT NOT NULL,
-    trimestre INT NOT NULL,
-    semestre INT NOT NULL,
-    nome_mes VARCHAR(20)
-);
-
-CREATE TABLE dw.dim_localizacao (
-    id_localizacao INT IDENTITY(1,1) PRIMARY KEY,
-    distrito VARCHAR(200),
-    concelho VARCHAR(200),
-    freguesia VARCHAR(200)
-);
-CREATE TABLE dw.dim_voltagem (
-    id_voltagem INT IDENTITY(1,1) PRIMARY KEY,
-    nivel_voltagem VARCHAR(50)
-);
-CREATE TABLE dw.fact_consumo_eletrico (
-    id_consumo_eletrico BIGINT IDENTITY(1,1) PRIMARY KEY,
-    consumo DECIMAL(12,3),
-    id_tempo INT,
-    id_localizacao INT,
-    id_voltagem INT,
-    FOREIGN KEY (id_tempo) REFERENCES dw.dim_tempo(id_tempo),
-    FOREIGN KEY (id_localizacao) REFERENCES dw.dim_localizacao(id_localizacao),
-    FOREIGN KEY (id_voltagem) REFERENCES dw.dim_voltagem(id_voltagem)
-);
-
-
+--Popular Tabelas
 
 -------------------------------------------------------------
 ---------------- Procedure dim localizacao ------------------
@@ -68,6 +18,7 @@ BEGIN
 END;
 
 
+
 -------------------------------------------------------------
 ------------------- Procedure dim tempo ---------------------
 -------------------------------------------------------------
@@ -75,13 +26,18 @@ CREATE PROCEDURE dw.sp_popular_dim_tempo
 AS
 BEGIN
     INSERT INTO dw.dim_tempo (
+        id_tempo,
         ano,
         mes,
         trimestre,
         semestre,
         nome_mes
     )
-    SELECT DISTINCT
+    SELECT
+        CASE 
+            WHEN Ano <= 2022 THEN -ROW_NUMBER() OVER (ORDER BY Ano, Mês)  -- IDs negativos para <= 2022
+            WHEN Ano >= 2023 THEN ROW_NUMBER() OVER (ORDER BY Ano, Mês)   -- IDs positivos para >= 2023
+        END AS id_tempo,
         Ano,
         Mês,
         DATEPART(QUARTER, DATEFROMPARTS(Ano, Mês, 1)) AS trimestre,
@@ -90,11 +46,12 @@ BEGIN
             ELSE 2 
         END AS semestre,
         DATENAME(MONTH, DATEFROMPARTS(Ano, Mês, 1)) AS nome_mes
-    FROM staging.consumo_energia_raw
-    WHERE Ano IS NOT NULL
-      AND Mês IS NOT NULL;
+    FROM (
+        SELECT DISTINCT Ano, Mês
+        FROM staging.consumo_energia_raw
+        WHERE Ano IS NOT NULL AND Mês IS NOT NULL
+    ) AS t;
 END;
-
 
 
 
@@ -110,7 +67,6 @@ BEGIN
     FROM staging.consumo_energia_raw
     WHERE [Nível_de_Tensão] IS NOT NULL;
 END;
-
 
 
 
@@ -143,6 +99,9 @@ BEGIN
         ON v.nivel_voltagem = LOWER(s.[Nível_de_Tensão])
     WHERE s.[Energia_Ativa_kWh] IS NOT NULL;
 END;
+
+
+
 
 
 -- Popular Tabelas
