@@ -1,25 +1,20 @@
 USE dw8_2526_DW_Energia;
 
---SET STATISTICS PROFILE ON;
---SET STATISTICS PROFILE OFF;
 SET STATISTICS IO ON;
---SET STATISTICS IO OFF;
 SET STATISTICS TIME ON;
---SET STATISTICS TIME OFF;
 
 
--- Índices na fact table e dimensões
-CREATE NONCLUSTERED INDEX idx_fact_time
-ON dw.fact_consumo_eletrico (id_tempo);
-CREATE NONCLUSTERED INDEX idx_fact_location
-ON dw.fact_consumo_eletrico (id_localizacao);
-CREATE NONCLUSTERED INDEX idx_fact_voltage
-ON dw.fact_consumo_eletrico (id_voltagem);
-CREATE NONCLUSTERED INDEX idx_dim_location
-ON dw.dim_localizacao (distrito, concelho, freguesia);
-CREATE NONCLUSTERED INDEX idx_dim_time
-ON dw.dim_tempo (ano, mes);
 
+
+-- Indice (Valores especificos dims)
+SELECT SUM(f.consumo)
+FROM dw.fact_consumo_eletrico f
+JOIN dw.dim_tempo t ON f.id_tempo = t.id_tempo
+JOIN dw.dim_localizacao l ON f.id_localizacao = l.id_localizacao
+WHERE l.freguesia = 'Vila Verde' AND t.mes = 12;
+-- LR sem Indices ->580*1288*21 = 15687840
+-- LR com Indices ->580*912*20  = 10579200
+-- Ganho -> 15687840 - 10579200 = 5108640
 
 
 
@@ -38,8 +33,6 @@ WITH ConsumoPorDistritoAno AS (
 SELECT *
 FROM ConsumoPorDistritoAno
 ORDER BY distrito, ano;
--- LR sem Indices ->
--- LR com Indices ->
 
 
 -- ROLLUP: Qual é consumo total por distrito e mês, incluindo subtotais?
@@ -52,8 +45,6 @@ JOIN dw.dim_localizacao l ON f.id_localizacao = l.id_localizacao
 JOIN dw.dim_tempo t ON f.id_tempo = t.id_tempo
 GROUP BY ROLLUP (l.distrito, t.mes)
 ORDER BY l.distrito, t.mes;
--- LR sem Indices ->
--- LR com Indices ->
 
 
 --CUBE: Qual é o consumo por distrito e nível de tensão?
@@ -66,11 +57,9 @@ JOIN dw.dim_localizacao l ON f.id_localizacao = l.id_localizacao
 JOIN dw.dim_voltagem v ON f.id_voltagem = v.id_voltagem
 GROUP BY CUBE (l.distrito, v.nivel_voltagem)
 ORDER BY l.distrito, v.nivel_voltagem;
--- LR sem Indices ->
--- LR com Indices ->
 
 
--- GROUPING SETS: Consumo por Ano e Nível de Voltagem?
+-- GROUPING SETS: Consumo por Ano e Nível de tensão?
 SELECT
     t.ano,
     v.nivel_voltagem,
@@ -87,5 +76,3 @@ GROUP BY GROUPING SETS (
     ()
 )
 ORDER BY t.ano, v.nivel_voltagem;
--- LR sem Indices ->
--- LR com Indices ->

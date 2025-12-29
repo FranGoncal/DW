@@ -122,6 +122,21 @@ REFERENCES dw.dim_voltagem(id_voltagem);
 
 
 
+-- Índices na fact table e dimensões
+CREATE NONCLUSTERED INDEX idx_fact_time
+ON dw.fact_consumo_eletrico (id_tempo);
+CREATE NONCLUSTERED INDEX idx_fact_location
+ON dw.fact_consumo_eletrico (id_localizacao);
+CREATE NONCLUSTERED INDEX idx_fact_voltage
+ON dw.fact_consumo_eletrico (id_voltagem);
+CREATE NONCLUSTERED INDEX idx_dim_location
+ON dw.dim_localizacao (distrito, concelho, freguesia);
+CREATE NONCLUSTERED INDEX idx_dim_time
+ON dw.dim_tempo (ano, mes);
+
+
+
+
 
 
 -- Check Particoes

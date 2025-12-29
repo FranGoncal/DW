@@ -1,3 +1,5 @@
+USE dw8_2526_DW_Energia;
+
 -------------------------------------------------
 -------------------- Drops  ---------------------
 -------------------------------------------------
@@ -40,13 +42,6 @@ IF EXISTS (SELECT 1 FROM sys.filegroups WHERE name = 'FG_FACT_2')
 -- remover schema dw
 IF EXISTS (SELECT 1 FROM sys.schemas WHERE name = 'dw')
     EXEC('DROP SCHEMA dw');
-
-
-
-
-
-
-
 
 -- Remover índices da fact table se existirem
 IF EXISTS (SELECT 1 
